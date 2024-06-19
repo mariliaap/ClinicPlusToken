@@ -1,0 +1,257 @@
+unit ClinicPlus.Form;
+
+interface
+
+uses
+  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
+  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Layouts,
+  FMX.ListBox, FMX.MultiView, FMX.Objects, FMX.StdCtrls,
+  FMX.Controls.Presentation, FMX.ListView.Types, FMX.ListView.Appearances,
+  FMX.ListView.Adapters.Base, FMX.ListView, FMX.TabControl, FireDAC.Stan.Intf,
+  FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS,
+  FireDAC.Phys.Intf, FireDAC.DApt.Intf, System.Rtti, System.Bindings.Outputs,
+  Fmx.Bind.Editors, Data.Bind.EngExt, Fmx.Bind.DBEngExt, Data.Bind.Components,
+  Data.Bind.DBScope, Data.DB, FireDAC.Comp.DataSet, FireDAC.Comp.Client;
+
+type
+  TClinicPlusForm = class(TForm)
+    TopRCT: TRectangle;
+    MenuBTN: TButton;
+    Label1: TLabel;
+    AtualizarBTN: TButton;
+    ButtonRCT: TRectangle;
+    ScheduleLYT: TLayout;
+    HomePTH: TPath;
+    HomeLYT: TLayout;
+    HistoryPTH: TPath;
+    Path3: TPath;
+    AnimeLYT: TLayout;
+    HistoryLYT: TLayout;
+    SchedulePTH: TPath;
+    AnimeRCT: TRectangle;
+    MultiView1: TMultiView;
+    ListBox1: TListBox;
+    ListBoxItem1: TListBoxItem;
+    ListBoxItem2: TListBoxItem;
+    ListBoxItem3: TListBoxItem;
+    ListBoxItem4: TListBoxItem;
+    ContentTBC: TTabControl;
+    ScheduleTBC: TTabItem;
+    HomeTBC: TTabItem;
+    HistoryTBC: TTabItem;
+    ScheduleLTV: TListView;
+    HistoryLTV: TListView;
+    Layout1: TLayout;
+    Circle1: TCircle;
+    CPFBL: TLabel;
+    Namelbl: TLabel;
+    ClienteMTB: TFDMemTable;
+    AgendamentoMTB: TFDMemTable;
+    HistoricoMTB: TFDMemTable;
+    ClienteMTBidcliente: TAutoIncField;
+    ClienteMTBnome: TStringField;
+    ClienteMTBcpf: TStringField;
+    ClienteMTBnascimento: TDateTimeField;
+    ClienteMTBfoto: TBlobField;
+    AgendamentoMTBidagendamento: TAutoIncField;
+    AgendamentoMTBidfuncionario: TIntegerField;
+    AgendamentoMTBidcliente: TIntegerField;
+    AgendamentoMTBidlocal: TIntegerField;
+    AgendamentoMTBidadmin: TIntegerField;
+    AgendamentoMTBdata_agendamento: TDateField;
+    AgendamentoMTBhora_agendamento: TTimeField;
+    AgendamentoMTBdata_atendimento: TDateField;
+    AgendamentoMTBhora_atendimento: TTimeField;
+    AgendamentoMTBdata_confirmacao: TDateTimeField;
+    AgendamentoMTBdata_cadastro: TDateTimeField;
+    AgendamentoMTBfg_status: TStringField;
+    AgendamentoMTBprofissional: TStringField;
+    AgendamentoMTBpaciente: TStringField;
+    AgendamentoMTBlocal: TStringField;
+    HistoricoMTBidagendamento: TAutoIncField;
+    HistoricoMTBidfuncionario: TIntegerField;
+    HistoricoMTBidcliente: TIntegerField;
+    HistoricoMTBidlocal: TIntegerField;
+    HistoricoMTBidadmin: TIntegerField;
+    HistoricoMTBdata_confirmacao: TDateTimeField;
+    HistoricoMTBdata_agendamento: TDateField;
+    HistoricoMTBhora_agendamento: TTimeField;
+    HistoricoMTBdata_atendimento: TDateField;
+    HistoricoMTBhora_atendimento: TTimeField;
+    HistoricoMTBdata_cadastro: TDateTimeField;
+    HistoricoMTBfg_status: TStringField;
+    HistoricoMTBprofissional: TStringField;
+    HistoricoMTBpaciente: TStringField;
+    HistoricoMTBlocal: TStringField;
+    BindSourceDB1: TBindSourceDB;
+    BindingsList1: TBindingsList;
+    LinkListControlToField1: TLinkListControlToField;
+    BindSourceDB2: TBindSourceDB;
+    LinkListControlToField2: TLinkListControlToField;
+    Label2: TLabel;
+    procedure ScheduleLYTClick(Sender: TObject);
+    procedure HistoryLYTClick(Sender: TObject);
+    procedure HomeLYTClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations}
+    procedure GetAgendamentoAtivo (const User: Integer);//requisição de agendamento
+    procedure GetHistorico (const User: Integer);//requisiçãode hitorico com todos agendamentos
+    procedure GetCliente (const ID: Integer);//requisição de nome. cpf e foto do usuario
+    procedure LodCliente (const ID: Integer);//carrega nome, cpf e foto do usuario
+
+  end;
+
+const
+  //EnderecoServidor= //http192.168.0.110:9000/';
+  EnderecoServidor='http://localhost:9000/';
+
+var
+  ClinicPlusForm: TClinicPlusForm;
+  userID: Integer; //usado para facilitar testes
+  FotoStream: TMemoryStream;
+  BrushBmp: TBrushBitmap;
+
+implementation
+
+uses fmx.Ani, restrequest4d, dataset.serialize, DataSet.Serialize.Adapter.RESTRequest4D, system.threading;
+
+{$R *.fmx}
+
+
+
+procedure TClinicPlusForm.GetAgendamentoAtivo(const User: Integer);
+begin
+  TRequest.New.BaseURL (EnderecoServidor+ 'agendamento') //URL da API
+  .AddParam ('fg_status', 'a')//queryParam-filtra apenas status ativo
+  .AddParam ('idcliente', User.ToString) //queryParam-filtra apenas pertence ao usuario
+  .Accept ('application/json') //tipo de dados da resposta que esperamos
+//  .DataSetAdapter (AgendamentoMTB) //conversão de JSON para DATASET
+  .Adapters(TDataSetSerializeAdapter.New(AgendamentoMTB))
+  .Get;                                 //verbo da requisição
+end;
+
+procedure TClinicPlusForm.GetCliente(const ID: Integer);
+begin
+Trequest.New.BaseURL(EnderecoServidor+'cliente')//URL da API
+.ResourceSuffix(ID.ToString) // diciona /1 na url
+.Accept('application/json') //tipo de dados da resposta que esperamos
+.DataSetAdapter(clienteMTB) //Conversão de JSON para DATASET
+.Get; //verbo da requisição
+
+end;
+
+procedure TClinicPlusForm.GetHistorico(const User: Integer);
+begin
+Trequest.New.BaseURL(EnderecoServidor+'agendamento')//URL da API
+.AddParam('idcliente',User.Tostring)//QueryParam - apenas pertence ao usuario
+.Accept('aplication/json')//tipo de dados da resposta que esperamos
+.DataSetAdapter(HistoricoMTB)//Conversão de JSON para DATASET
+Get; //verbo da requisição
+
+
+
+end;
+
+procedure TClinicPlusForm.HistoryLYTClick(Sender: TObject);
+begin
+//animação do retangulo de navegação
+TAnimator
+.AnimateFloat(AnimeRCT, //componente do formulario a ser animado
+'position.x', //propriedade do componente a ser animado
+HistoryLYT.Position.X, //valor da prop. ao final da animação
+0.5, //duração da animação
+TAnimationType.Out, //tipo da animação (entrada/saida ou ambos)
+TInterpolationType.Bounce //tipo da interpolação da animação
+);
+//animação do tabcontrol
+ContentTBC
+.SetActiveTabWithTransitionAsync(
+HistoryTBC,//Aba que será exibida
+TTabTransition.Slide, // transição estilo escorrega
+TTabTransitionDirection.Normal, // animação da direita para esquerda (normal)
+nil // ponteiro para execução de função ao terminar transição.
+);
+
+
+end;
+
+procedure TClinicPlusForm.HomeLYTClick(Sender: TObject);
+var
+TabDirection: TTabTransitionDirection;
+begin
+// apenas para o botão do centro será necessário
+// ajustar o sentido da animação de acordo com
+// a pagina atual (direita p/ esquerda ou
+// da esuqerda p/ direita)
+if ContentTBC.ActiveTab.Index > HomeTBC.Index then
+TabDirection :=TTabTransitionDirection.Reversed
+else
+TabDirection := TTabTransitionDirection.Normal;
+//animação do retangulo de animação
+TAnimator
+.AnimateFloat ( AnimeRCT, //componente do formulario a ser animado
+'position.x', //propriedade do componente a ser animado
+HomeLYT.Position.X, //valor da prop. ao final da animação
+0.5, //duração da animação
+TAnimationType.Out, //tipo da animação (entrada?saida ou ambos)
+TInterpolationType.Bounce //tipo da interpolação da animação
+);
+//animação do tabcontrol
+ContentTBC
+.SetActiveTabWithTransitionAsync(
+HomeTBC, //aba que será exibida
+TTabTransition.Slide, //transição estilo escorrega
+TabDirection, //animação normal ou reserva, depende do IF acima
+nil //ponteiro para execução de função ao terminar transição
+);
+
+
+
+
+end;
+
+procedure TClinicPlusForm.LodCliente(const ID: Integer);
+begin
+GetCliente(ID);//requisição na Backend (API)
+//usar synchronize apenas com a certeza de que LoadCliente será chamado dentro de
+//uma thread diferente da thread principal.
+TThread.Synchronize (TThread.CurrentThread, procedure
+begin
+  NameLBL.Text := ClienteMTBnome.AsString; //grava nome no formulario
+  CPFLBL.Text := ClienteMTBCPF.AsString; //grava CPF no formulario
+  FotoStream := TMemoryStream.Create;
+end;
+
+
+
+
+end;
+
+procedure TClinicPlusForm.ScheduleLYTClick(Sender: TObject);
+begin
+//Animação do retangulo de navegação
+Tanimator
+.AnimateFloat(AnimeRCT, //Componente de formulário a ser animado
+'position.x', // propriedade de componente a ser animado
+scheduleLYT.Position.X, //valor da prop. ao final da animação
+0.5, // Duração da animação
+TAnimationType.Out, //tipo da animação (entrada/saida ou ambos)
+TInterpolationType.Bounce //tipo da interpolação da animação
+// Animação do Tabcontrol
+ContentTBC
+.SetActiveTabWithTransitionAsync(
+ScheduleTBC, //aba que será exibida
+TTabTransition.Slide, //transição estilo escorrega
+TTabTransitionDirection.Reversed, //animação da esquerda para a direita (reserva)
+nil //ponteiro para execução da função ao terminar transição
+);
+
+
+
+end;
+
+
+
+end.
